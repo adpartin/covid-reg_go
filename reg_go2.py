@@ -10,19 +10,42 @@ import matplotlib
 matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
+from keras_utils import plot_prfrm_metrics
 
-import tensorflow as tf
+# import tensorflow as tf
 
-import keras as ke
-from keras import backend as K
+# import keras as ke
+# from keras import backend as K
 
-from keras.layers import Input, Dense, Dropout, Activation
-from keras.optimizers import SGD, Adam, RMSprop
-from keras.models import Sequential, Model, model_from_json, model_from_yaml
-from keras.utils import np_utils, multi_gpu_model
+# from keras.layers import Input, Dense, Dropout, Activation
+# from keras.optimizers import SGD, Adam, RMSprop
+# from keras.models import Sequential, Model, model_from_json, model_from_yaml
+# from keras.utils import np_utils, multi_gpu_model
 
-from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping
+# from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping
 
+# ------------------------------------------------------------------------
+try:
+    import tensorflow as tf
+    if int(tf.__version__.split('.')[0]) < 2:
+        import keras
+        from keras import backend as K
+        from keras.models import load_model
+        from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping, TensorBoard
+        from keras.utils import plot_model
+    else:
+        from tensorflow.keras.models import load_model, model_from_json, model_from_yaml
+        from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping
+        from tensorflow.keras.utils import plot_model
+
+        from tensorflow.keras import backend as K
+        from tensorflow.keras.layers import Input, Layer, Dense, Dropout, Activation, BatchNormalization
+        from tensorflow.keras import optimizers
+        from tensorflow.keras.optimizers import SGD, Adam
+        from tensorflow.keras.models import Sequential, Model
+except:
+    print('Could not import tensorflow.')
+# ------------------------------------------------------------------------
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
@@ -43,12 +66,19 @@ BATCH = 32
 #nb_classes = 2
 
 data_path = args['in']
-        
-df_toss = (pd.read_csv(data_path,nrows=1).values)
+from pathlib import Path
+data_path = Path(data_path)
+
+outdir=Path('./out')
+os.makedirs(outdir, exist_ok=True)
+
+# df_toss = (pd.read_csv(data_path,nrows=1).values)
+df_toss = pd.read_parquet(data_path).values
 
 print('df_toss:', df_toss.shape)
 
-PL = df_toss.size
+# PL = df_toss.size
+PL = df_toss.shape[1]
 PS = PL - 1
 
 print('PL=',PL)
@@ -62,7 +92,8 @@ def r2(y_true, y_pred):
     SS_tot = K.sum(K.square(y_true - K.mean(y_true)))
     return (1 - SS_res/(SS_tot + K.epsilon()))
 
-class Attention(ke.layers.Layer):
+# class Attention(ke.layers.Layer):
+class Attention(Layer):
    def __init__(self, output_dim, **kwargs):
        self.output_dim = output_dim
        super(Attention, self).__init__(**kwargs)
@@ -75,10 +106,12 @@ class Attention(ke.layers.Layer):
        super(Attention, self).build(input_shape)
 
    def call(self, V):
-       Q = ke.backend.dot(V, self.kernel)
+       # Q = ke.backend.dot(V, self.kernel)
+       Q = keras.backend.dot(V, self.kernel)
        Q =  Q * V
        Q = Q / math.sqrt(self.output_dim)
-       Q = ke.activations.softmax(Q)
+       # Q = ke.activations.softmax(Q)
+       Q = keras.activations.softmax(Q)
        return Q
 
    def compute_output_shape(self, input_shape):
@@ -89,8 +122,15 @@ class Attention(ke.layers.Layer):
 def load_data():
 
     data_path = args['in']
+    data_path = Path(data_path)
         
-    df = (pd.read_csv(data_path,skiprows=1).values).astype('float32')
+    # df = (pd.read_csv(data_path,skiprows=1).values).astype('float32')
+    if data_path.suffix=='.parquet':
+        df = pd.read_parquet(data_path)
+        df = df.values
+        df = df.astype('float32')
+    else:
+        df = (pd.read_csv(data_path,skiprows=1).values).astype('float32')
 
     df_y = df[:,0].astype('float32')
     df_x = df[:, 1:PL].astype(np.float32)
@@ -119,8 +159,7 @@ print('Y_test shape:', Y_test.shape)
 
 
 inputs = Input(shape=(PS,))
-x = Dense(250, activation='relu')(inputs)
-#b = Attention(1000)(a)
+x = Dense(250, activation='relu')(inputs) #b = Attention(1000)(a)
 #x = ke.layers.multiply([b, a])
 
 #b = Dense(1000, activation='softmax')(inputs)
@@ -157,7 +196,7 @@ model.compile(loss='mean_squared_error',
 
 checkpointer = ModelCheckpoint(filepath='reg_go.autosave.model.h5', verbose=1, save_weights_only=False, save_best_only=True)
 csv_logger = CSVLogger('reg_go.training.log')
-reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.75, patience=20, verbose=1, mode='auto', epsilon=0.0001, cooldown=3, min_lr=0.000000001)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.75, patience=20, verbose=1, mode='auto', min_delta=0.0001, cooldown=3, min_lr=0.000000001)
 early_stop = EarlyStopping(monitor='val_loss', patience=100, verbose=1, mode='auto')
 
 
@@ -176,31 +215,34 @@ print(score)
 
 print(history.history.keys())
 
-# summarize history for MAE                                                                                                              
-plt.plot(history.history['mean_absolute_error'])
-plt.plot(history.history['val_mean_absolute_error'])
-plt.title('Model Mean Absolute Error')
-plt.ylabel('mae')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left')
+his = plot_prfrm_metrics(history=history, logfile_path=None, title=str(data_path),
+        name=None, skp_ep=1, outdir=outdir, add_lr=False)
 
-plt.savefig('reg_go.mae.png', bbox_inches='tight')
-plt.savefig('reg_go.mae.pdf', bbox_inches='tight')
+# # summarize history for MAE                                                                                                              
+# plt.plot(history.history['mean_absolute_error'])
+# plt.plot(history.history['val_mean_absolute_error'])
+# plt.title('Model Mean Absolute Error')
+# plt.ylabel('mae')
+# plt.xlabel('epoch')
+# plt.legend(['train', 'test'], loc='upper left')
 
-plt.close()
+# plt.savefig('reg_go.mae.png', bbox_inches='tight')
+# plt.savefig('reg_go.mae.pdf', bbox_inches='tight')
 
-# summarize history for loss                                                                                                                  
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('Model Loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left')
+# plt.close()
 
-plt.savefig('reg_go.loss.png', bbox_inches='tight')
-plt.savefig('reg_go.loss.pdf', bbox_inches='tight')
+# # summarize history for loss                                                                                                                  
+# plt.plot(history.history['loss'])
+# plt.plot(history.history['val_loss'])
+# plt.title('Model Loss')
+# plt.ylabel('loss')
+# plt.xlabel('epoch')
+# plt.legend(['train', 'test'], loc='upper left')
 
-plt.close()
+# plt.savefig('reg_go.loss.png', bbox_inches='tight')
+# plt.savefig('reg_go.loss.pdf', bbox_inches='tight')
+
+# plt.close()
 
 print('Test val_loss:', score[0])
 print('Test val_mae:', score[1])
