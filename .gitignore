@@ -1,0 +1,12 @@
+.*
+!.gitignore
+*__*
+*.parquet
+*.csv
+*.png
+*.h5
+*.pdf
+*.yaml
+*.json
+*.log
+
