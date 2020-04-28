@@ -69,19 +69,20 @@ data_path = args['in']
 from pathlib import Path
 data_path = Path(data_path)
 
-outdir=Path('./out')
+data_path = data_path.with_suffix('')
+outdir=Path('./out')/data_path.name
 os.makedirs(outdir, exist_ok=True)
 
 # df_toss = (pd.read_csv(data_path,nrows=1).values)
-df_toss = pd.read_parquet(data_path).values
+# df_toss = pd.read_parquet(data_path).values
 
-print('df_toss:', df_toss.shape)
+# print('df_toss:', df_toss.shape)
 
-# PL = df_toss.size
-PL = df_toss.shape[1]
-PS = PL - 1
+# # PL = df_toss.size
+# PL = df_toss.shape[1]
+# PS = PL - 1
 
-print('PL=',PL)
+# print('PL=',PL)
 
 #PL     = 6213   # 38 + 60483
 #PS     = 6212   # 60483
@@ -127,13 +128,16 @@ def load_data():
     # df = (pd.read_csv(data_path,skiprows=1).values).astype('float32')
     if data_path.suffix=='.parquet':
         df = pd.read_parquet(data_path)
+        if 'SMILES' in df.columns:
+            df = df.drop(columns=['cls','binner','TITLE','SMILES'])
         df = df.values
         df = df.astype('float32')
     else:
         df = (pd.read_csv(data_path,skiprows=1).values).astype('float32')
 
     df_y = df[:,0].astype('float32')
-    df_x = df[:, 1:PL].astype(np.float32)
+    # df_x = df[:, 1:PL].astype(np.float32)
+    df_x = df[:, 1:].astype(np.float32)
 
 
 #    scaler = MaxAbsScaler()
@@ -158,6 +162,7 @@ print('Y_train shape:', Y_train.shape)
 print('Y_test shape:', Y_test.shape)
 
 
+PS=X_train.shape[1]
 inputs = Input(shape=(PS,))
 x = Dense(250, activation='relu')(inputs) #b = Attention(1000)(a)
 #x = ke.layers.multiply([b, a])
@@ -194,8 +199,8 @@ model.compile(loss='mean_squared_error',
 
 # set up a bunch of callbacks to do work during model training..                                                                              
 
-checkpointer = ModelCheckpoint(filepath='reg_go.autosave.model.h5', verbose=1, save_weights_only=False, save_best_only=True)
-csv_logger = CSVLogger('reg_go.training.log')
+checkpointer = ModelCheckpoint(filepath=str(outdir/'reg_go.autosave.model.h5'), verbose=1, save_weights_only=False, save_best_only=True)
+csv_logger = CSVLogger(str(outdir/'reg_go.training.log'))
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.75, patience=20, verbose=1, mode='auto', min_delta=0.0001, cooldown=3, min_lr=0.000000001)
 early_stop = EarlyStopping(monitor='val_loss', patience=100, verbose=1, mode='auto')
 

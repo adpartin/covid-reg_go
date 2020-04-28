@@ -104,7 +104,7 @@ def plot_prfrm_metrics(history=None, logfile_path=None, title=None, name=None, s
         ymin, ymax = ymin - lim, ymax + lim
 
         # Start figure
-        fig, ax1 = plt.subplots()
+        fig, ax1 = plt.subplots(figsize=(8,6))
         
         # Plot metrics
         alpha = 0.6
@@ -145,7 +145,7 @@ def plot_prfrm_metrics(history=None, logfile_path=None, title=None, name=None, s
         # fig.tight_layout()
         fname = (metric_name + '.png') if name is None else (name + '_' + metric_name + '.png')
         figpath = Path(outdir) / fname
-        plt.savefig(figpath, bbox_inches='tight')
+        plt.savefig(figpath, bbox_inches='tight', dpi=150)
         plt.close()
         
     return history
