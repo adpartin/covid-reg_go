@@ -256,37 +256,37 @@ print('Test val_mae:', score[1])
 
 # serialize model to JSON                                                                                                                     
 model_json = model.to_json()
-with open("reg_go.model.json", "w") as json_file:
+with open((outdir/'reg_go.model.json'), "w") as json_file:
         json_file.write(model_json)
 
 # serialize model to YAML                                                                                                                     
 model_yaml = model.to_yaml()
-with open("reg_go.model.yaml", "w") as yaml_file:
+with open(str(outdir/'reg_go.model.yaml'), "w") as yaml_file:
         yaml_file.write(model_yaml)
 
 
 # serialize weights to HDF5                                                                                                                   
-model.save_weights("reg_go.model.h5")
+model.save_weights(str(outdir/"reg_go.model.h5"))
 print("Saved model to disk")
 
 #exit()
 
 # load json and create model                                                                                                                  
-json_file = open('reg_go.model.json', 'r')
+json_file = open(str(outdir/'reg_go.model.json'), 'r')
 loaded_model_json = json_file.read()
 json_file.close()
 loaded_model_json = model_from_json(loaded_model_json)
 
 
 # load yaml and create model                                                                                                                  
-yaml_file = open('reg_go.model.yaml', 'r')
+yaml_file = open(str(outdir/'reg_go.model.yaml'), 'r')
 loaded_model_yaml = yaml_file.read()
 yaml_file.close()
 loaded_model_yaml = model_from_yaml(loaded_model_yaml)
 
 
 # load weights into new model                                                                                                                 
-loaded_model_json.load_weights("reg_go.model.h5")
+loaded_model_json.load_weights(str(outdir/'reg_go.model.h5'))
 print("Loaded json model from disk")
 
 # evaluate json loaded model on test data                                                                                                     
@@ -297,7 +297,7 @@ print('json Validation loss:', score_json[0])
 print('json Validation mae:', score_json[1])
 
 # load weights into new model                                                                                                                 
-loaded_model_yaml.load_weights("reg_go.model.h5")
+loaded_model_yaml.load_weights(str(outdir/'reg_go.model.h5'))
 print("Loaded yaml model from disk")
 
 # evaluate loaded model on test data                                                                                                          
@@ -316,8 +316,8 @@ predict_yaml_test = loaded_model_yaml.predict(X_test)
 pred_train = predict_yaml_train[:,0]
 pred_test = predict_yaml_test[:,0]
 
-np.savetxt("pred_train.csv", pred_train, delimiter=".", newline='\n', fmt="%.3f")
-np.savetxt("pred_test.csv", pred_test, delimiter=",", newline='\n',fmt="%.3f")
+np.savetxt(str(outdir/'pred_train.csv'), pred_train, delimiter=".", newline='\n', fmt="%.3f")
+np.savetxt(str(outdir/'pred_test.csv'), pred_test, delimiter=",", newline='\n',fmt="%.3f")
 
 print('Correlation prediction on test and Y_test:', np.corrcoef( pred_test, Y_test))
 print('Correlation prediction on train and Y_train:', np.corrcoef( pred_train, Y_train))
