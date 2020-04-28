@@ -1,6 +1,7 @@
 .*
 !.gitignore
 *__*
+out/
 *.parquet
 *.csv
 *.png
